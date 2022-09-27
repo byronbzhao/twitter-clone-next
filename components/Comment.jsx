@@ -23,29 +23,21 @@ import { useRecoilState } from 'recoil';
 import { modalState, postIDState } from '../atom/modalAtom';
 import { useRouter } from 'next/router';
 
-const Post = ({ post, id }) => {
+const Comment = ({ comment, commentId, originalPostId }) => {
 	const [likes, setLikes] = useState([]);
-	const [comments, setComments] = useState([]);
 	const [hasLiked, setHasLiked] = useState(false);
 	const [open, setOpen] = useRecoilState(modalState);
 	const [postId, setPostId] = useRecoilState(postIDState);
 
 	const { data: session } = useSession();
-	const router = useRouter();
+	const router = useRouter()
 
 	useEffect(() => {
 		const unsubscribe = onSnapshot(
-			collection(db, 'posts', id, 'likes'),
+			collection(db, 'posts', originalPostId, 'comments', commentId, 'likes'),
 			(snapshot) => setLikes(snapshot.docs)
 		);
-	}, [db]);
-
-	useEffect(() => {
-		const unsubscribe = onSnapshot(
-			collection(db, 'posts', id, 'comments'),
-			(snapshot) => setComments(snapshot.docs)
-		);
-	}, [db]);
+	}, [db, originalPostId]);
 
 	useEffect(() => {
 		setHasLiked(
@@ -53,12 +45,12 @@ const Post = ({ post, id }) => {
 		);
 	}, [likes]);
 
-	const likePost = async () => {
+	const likeComment = async () => {
 		if (session) {
 			if (hasLiked) {
-				await deleteDoc(doc(db, 'posts', id, 'likes', session?.user.uid));
+				await deleteDoc(doc(db, 'posts', originalPostId, 'comments', commentId, 'likes', session?.user.uid));
 			} else {
-				await setDoc(doc(db, 'posts', id, 'likes', session?.user.uid), {
+				await setDoc(doc(db, 'posts', originalPostId, 'comments', commentId, 'likes', session?.user.uid), {
 					username: session.user.username,
 				});
 			}
@@ -67,22 +59,18 @@ const Post = ({ post, id }) => {
 		}
 	};
 
-	const deletePost = async () => {
-		if (window.confirm('Are you sure you want to delete this post?')) {
-			deleteDoc(doc(db, 'posts', id));
-			if (post?.data()?.image) {
-				deleteObject(ref(storage, `posts/${id}/image`));
-			}
-			router.push('/');
+	const deleteComment = async () => {
+		if (window.confirm('Are you sure you want to delete this comment?')) {
+			deleteDoc(doc(db, 'posts', originalPostId, 'comments', commentId ));
 		}
 	};
 
 	return (
-		<div className="flex p-3 cursor-pointer border-b border-gray-200">
+		<div className="flex p-3 cursor-pointer border-b border-gray-200 pl-20">
 			{/* userimage */}
 			<img
 				className="h-11 w-11 rounded-full mr-4"
-				src={post?.data()?.userImg}
+				src={comment?.userImg}
 				alt="user-img"
 			/>
 			{/* right side */}
@@ -92,33 +80,23 @@ const Post = ({ post, id }) => {
 					{/* post user info */}
 					<div className="flex items-center space-x-1 whitespace=nowrap">
 						<h4 className="font-bold text-[15px] sm:text-[16px] hover:underline">
-							{post?.data()?.name}
+							{comment?.name}
 						</h4>
 						<span className="text-sm sm:text-[15px]">
-							@{post?.data()?.username} -{' '}
+							@{comment?.username} -{' '}
 						</span>
 						<span className="text-sm sm:text-[15px] hover:underline">
-							<Moment fromNow>{post?.data()?.timestamp?.toDate()}</Moment>
+							<Moment fromNow>{comment?.timestamp?.toDate()}</Moment>
 						</span>
 					</div>
 
 					{/* dot icon */}
 					<EllipsisHorizontalIcon className="h-10 w-10 hoverEffect hover:bg-sky-100 hover:text-sky-500 p-2" />
 				</div>
-				{/* post text */}
-				<p
-					onClick={() => router.push(`/posts/${id}`)}
-					className="text-gray-800 text-[15px] sm:text-[16px] mb-2"
-				>
-					{post?.data()?.text}
+				{/* comment text */}
+				<p className="text-gray-800 text-[15px] sm:text-[16px] mb-2">
+					{comment?.comment}
 				</p>
-				{/* post image */}
-				<img
-					onClick={() => router.push(`/posts/${id}`)}
-					className="rounded-2xl mr-2"
-					src={post?.data()?.image}
-					alt="post-image"
-				/>
 				{/* icons */}
 				<div className="flex justify-between text-gray-500 p-2">
 					<div className="flex items-center select-none">
@@ -127,32 +105,29 @@ const Post = ({ post, id }) => {
 								if (!session) {
 									signIn();
 								} else {
-									setPostId(id);
+									setPostId(originalPostId);
 									setOpen(!open);
 								}
 							}}
 							className="h-9 w-9 hoverEffect p-2 hover:text-sky-500 hover:bg-sky-100"
 						/>
-						{comments.length > 0 && (
-							<span className="text-sm">{comments.length}</span>
-						)}
 					</div>
-					{session?.user.uid === post?.data()?.id && (
+					{session?.user.uid === comment?.userId && (
 						<TrashIcon
 							className="h-9 w-9 hoverEffect p-2 hover:text-red-600 hover:bg-red-100"
-							onClick={deletePost}
+							onClick={deleteComment}
 						/>
 					)}
 					<div className="flex items-center">
 						{hasLiked ? (
 							<HeartIconFilled
 								className="h-9 w-9 hoverEffect p-2 text-red-600 hover:bg-red-100"
-								onClick={likePost}
+								onClick={likeComment}
 							/>
 						) : (
 							<HeartIcon
 								className="h-9 w-9 hoverEffect p-2 hover:text-red-600 hover:bg-red-100"
-								onClick={likePost}
+								onClick={likeComment}
 							/>
 						)}
 						{likes.length > 0 && (
@@ -171,4 +146,4 @@ const Post = ({ post, id }) => {
 	);
 };
 
-export default Post;
+export default Comment;
